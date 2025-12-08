@@ -1,8 +1,7 @@
 import axios from "axios";
 
 // Base API URL from .env
-const BASE_URL = import.meta.env.VITE_API_URL || "https://talenthubnew-1.onrender.com/api";
-
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 console.log("API Base URL:", BASE_URL);
 
 // Create Axios instance
