@@ -7,7 +7,7 @@ const PlaylistPage = () => {
   useEffect(() => {
     const fetchPlaylist = async () => {
       try {
-        const res = await axios.get("/api/videos/category/Playlist");
+        const res = await axios.get("/videos/category/Playlist");
         setVideos(res.data);
       } catch (err) {
         console.error("Error fetching playlist:", err);

@@ -10,7 +10,7 @@ const VideoCategoryPage = () => {
   useEffect(() => {
     const fetchVideos = async () => {
       try {
-        const res = await axios.get(`/api/videos/category/${category}`);
+        const res = await axios.get(`/videos/category/${category}`);
         setVideos(res.data);
       } catch (err) {
         console.error("Error fetching videos:", err);

@@ -27,7 +27,7 @@ export default function Upload() {
     e.preventDefault();
     setMessage("");
     try {
-      await axios.post(`/api/videos/youtube`, form, {
+      await axios.post(`/videos/youtube`, form, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
         },

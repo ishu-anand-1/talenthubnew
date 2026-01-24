@@ -1,31 +1,58 @@
 import axios from "axios";
 
-// Base API URL from .env
+// ===================== BASE URL (LOCALHOST) =====================
 const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
-console.log("API Base URL:", BASE_URL);
 
-// Create Axios instance
+console.log("🌐 API Base URL:", BASE_URL);
+
+// ===================== AXIOS INSTANCE =====================
 const api = axios.create({
-  baseURL: BASE_URL, // Do NOT add /api here again
+  baseURL: BASE_URL,
   withCredentials: true,
-  headers: { "Content-Type": "application/json" },
+  timeout: 30000,
 });
 
-// Attach token automatically for every request
+// ===================== REQUEST INTERCEPTOR =====================
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // ⚠️ Do NOT break FormData (video upload)
+    if (!(config.data instanceof FormData)) {
+      config.headers["Content-Type"] = "application/json";
+    }
+
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// Global error handling
+// ===================== RESPONSE INTERCEPTOR =====================
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error("API Error:", error.response?.data || error.message);
+    // Network / CORS error
+    if (!error.response) {
+      console.error("🚨 Network Error:", error.message);
+      return Promise.reject(error);
+    }
+
+    // Unauthorized
+    if (error.response.status === 401) {
+      console.warn("🔐 Unauthorized – clearing token");
+      localStorage.removeItem("token");
+    }
+
+    console.error(
+      "❌ API Error:",
+      error.response.status,
+      error.response.data
+    );
+
     return Promise.reject(error);
   }
 );
