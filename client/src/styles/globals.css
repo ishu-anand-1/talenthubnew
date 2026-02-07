@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* ===================== BASE LAYER ===================== */
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased;
+  }
+
+  /* Text selection */
+  ::selection {
+    @apply bg-indigo-500 text-white;
+  }
+
+  /* Accessible focus ring */
+  :focus-visible {
+    outline: 2px solid theme("colors.indigo.500");
+    outline-offset: 2px;
+  }
+
+  img {
+    @apply select-none;
+  }
+
+  button {
+    @apply focus:outline-none;
+  }
+}
+
+/* ===================== SCROLLBAR ===================== */
+
+/* Chrome, Edge, Safari */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #6366f1; /* indigo-500 */
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #4f46e5; /* indigo-600 */
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #6366f1 transparent;
+}

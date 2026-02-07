@@ -1,29 +1,33 @@
 import axios from "axios";
 
-// ===================== BASE URL (LOCALHOST) =====================
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+/* ===================== BASE URL ===================== */
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
-console.log("🌐 API Base URL:", BASE_URL);
-
-// ===================== AXIOS INSTANCE =====================
+/* ===================== AXIOS INSTANCE ===================== */
 const api = axios.create({
   baseURL: BASE_URL,
-  withCredentials: true,
   timeout: 30000,
+  withCredentials: true,
 });
 
-// ===================== REQUEST INTERCEPTOR =====================
+/* ===================== LOGOUT HELPER ===================== */
+const clearAuth = () => {
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("role");
+};
+
+/* ===================== REQUEST INTERCEPTOR ===================== */
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
 
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
-    // ⚠️ Do NOT break FormData (video upload)
-    if (!(config.data instanceof FormData)) {
-      config.headers["Content-Type"] = "application/json";
+      config.headers = {
+        ...config.headers,
+        Authorization: `Bearer ${token}`,
+      };
     }
 
     return config;
@@ -31,29 +35,52 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ===================== RESPONSE INTERCEPTOR =====================
+/* ===================== RESPONSE INTERCEPTOR ===================== */
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Network / CORS error
+    /* ================= NETWORK ERROR ================= */
     if (!error.response) {
-      console.error("🚨 Network Error:", error.message);
-      return Promise.reject(error);
+      console.error("🚨 Network error:", error.message);
+
+      return Promise.reject({
+        status: 0,
+        message: "Network error. Please check your internet connection.",
+      });
     }
 
-    // Unauthorized
-    if (error.response.status === 401) {
-      console.warn("🔐 Unauthorized – clearing token");
-      localStorage.removeItem("token");
+    const { status, data } = error.response;
+
+    /* ================= UNAUTHORIZED ================= */
+    if (status === 401) {
+      console.warn("🔐 Session expired — logging out");
+
+      clearAuth();
+
+      if (!window.location.pathname.includes("/login")) {
+        window.location.replace("/login");
+      }
     }
 
-    console.error(
-      "❌ API Error:",
-      error.response.status,
-      error.response.data
-    );
+    /* ================= FORBIDDEN ================= */
+    if (status === 403) {
+      console.warn("⛔ Forbidden request");
+    }
 
-    return Promise.reject(error);
+    /* ================= SERVER ERROR ================= */
+    if (status >= 500) {
+      console.error("🔥 Server error:", data);
+    }
+
+    /* ================= NORMALIZED ERROR ================= */
+    return Promise.reject({
+      status,
+      message:
+        data?.error ||
+        data?.message ||
+        "Something went wrong. Please try again.",
+      raw: error,
+    });
   }
 );
 

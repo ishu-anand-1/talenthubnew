@@ -1,4 +1,6 @@
 import express from "express";
+import multer from "multer";
+
 import {
   uploadVideoToCloudinary,
   uploadYouTubeVideo,
@@ -6,58 +8,98 @@ import {
   getMyVideos,
   deleteVideo,
   getFilteredVideos,
-  getVideosByCategory
-}from "../controllers/videoController.js";
+  getVideosByCategory,
+} from "../controllers/videoController.js";
+
 import { verifyToken } from "../middleware/authMiddleware.js";
-import multer from "multer";
-import { storage } from "../utils/cloudinary.js";
+import { cloudinaryStorage } from "../config/cloudinary.js";
 
 const router = express.Router();
-const upload = multer({ storage });
+const upload = multer({ storage: cloudinaryStorage });
 
-// ================== 📤 Upload Routes ==================
+/* =====================================================
+   📤 UPLOAD ROUTES
+===================================================== */
 
-// Upload video file to Cloudinary (Authenticated)
+/**
+ * @route   POST /api/videos
+ * @desc    Upload video file to Cloudinary
+ * @access  Private
+ */
 router.post(
   "/",
   verifyToken,
   upload.single("video"),
   (req, res, next) => {
     if (!req.file) {
-      return res.status(400).json({ error: "No video file uploaded" });
+      return res.status(400).json({
+        error: "Video file is required",
+      });
     }
     next();
   },
   uploadVideoToCloudinary
 );
 
-// Save YouTube video link (Authenticated)
-router.post("/youtube",verifyToken,uploadYouTubeVideo);
+/**
+ * @route   POST /api/videos/youtube
+ * @desc    Save YouTube video link
+ * @access  Private
+ */
+router.post("/youtube", verifyToken, uploadYouTubeVideo);
 
+/* =====================================================
+   📥 FETCH ROUTES (PUBLIC)
+===================================================== */
 
+/**
+ * @route   GET /api/videos
+ * @desc    Get all public videos (Learn / Talent pages)
+ * @access  Public
+ */
+router.get("/", getAllVideos);
 
-// Fetch ALL videos (Learn Page)
-router.get("/get-all-video",getAllVideos);
+/**
+ * @route   GET /api/videos/category/:category
+ * @desc    Get videos by category (random 100)
+ * @access  Public
+ */
+router.get("/category/:category", getVideosByCategory);
 
-// Fetch logged-in user's videos (Talent Page)
-router.get("/my-video",verifyToken,getMyVideos);
+/**
+ * @route   GET /api/videos/filter
+ * @desc    Filter videos by category / genre / level
+ * @access  Public
+ * @example /api/videos/filter?category=dance&genre=hip-hop&level=beginner
+ */
+router.get("/filter", getFilteredVideos);
 
-// Fetch videos by category (random 100)
-router.get("/category/:category",getVideosByCategory);
+/* =====================================================
+   👤 USER-SPECIFIC ROUTES
+===================================================== */
 
-// Filter videos by query params
-// Example: /filter?category=music&genre=rock&level=beginner
-router.get("/filter",getFilteredVideos);
+/**
+ * @route   GET /api/videos/my
+ * @desc    Get logged-in user's videos
+ * @access  Private
+ */
+router.get("/my", verifyToken, getMyVideos);
 
+/**
+ * @route   DELETE /api/videos/:id
+ * @desc    Delete a video owned by user
+ * @access  Private
+ */
+router.delete("/:id", verifyToken, deleteVideo);
 
-
-router.delete("/:id", verifyToken,deleteVideo);
-
-
-
-router.get("/youtube-test", (req, res) => {
-  console.log("✅ YouTube Test Route Hit");
-  res.json({ message: "Video routes are working fine" });
+/* =====================================================
+   🧪 HEALTH CHECK
+===================================================== */
+router.get("/health", (req, res) => {
+  res.status(200).json({
+    status: "OK",
+    message: "Video routes working correctly",
+  });
 });
 
 export default router;

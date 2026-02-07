@@ -1,87 +1,113 @@
-// authController.js (MongoDB + Mongoose + Secure OTP)
+// controllers/authController.js
 
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-import User from "../models/User.js";
-import PasswordReset from "../models/PasswordReset.js";
+import User from "../models/User.model.js";
+import PasswordReset from "../models/PasswordReset.model.js";
 
-const JWT_SECRET = process.env.JWT_SECRET;
+/* ===================== ENV VALIDATION ===================== */
+const {
+  JWT_SECRET,
+  EMAIL_HOST,
+  EMAIL_PORT,
+  EMAIL_USER,
+  EMAIL_PASS,
+} = process.env;
+
+if (!JWT_SECRET) {
+  throw new Error("❌ JWT_SECRET not defined in environment variables");
+}
 
 /* ===================== EMAIL TRANSPORTER ===================== */
 const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: false, // true only for port 465
+  host: EMAIL_HOST,
+  port: Number(EMAIL_PORT),
+  secure: Number(EMAIL_PORT) === 465, // true only for SSL
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: EMAIL_USER,
+    pass: EMAIL_PASS,
   },
 });
 
 /* ===================== REGISTER ===================== */
 export const register = async (req, res) => {
-  const { name, lastname, email, password } = req.body;
-
-  if (!name || !lastname || !email || !password) {
-    return res.status(400).json({ error: "All fields are required." });
-  }
-
   try {
+    const { name, lastname, email, password } = req.body;
+
+    if (!name || !lastname || !email || !password) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        error: "Password must be at least 6 characters",
+      });
+    }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(409).json({ error: "Email is already registered." });
+      return res.status(409).json({ error: "Email already registered" });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const newUser = await User.create({
+    const user = await User.create({
       name,
       lastname,
       email,
       password: hashedPassword,
+      role: "artist", // default role
     });
 
     const token = jwt.sign(
-      { id: newUser._id, email: newUser.email },
+      { id: user._id, role: user.role },
       JWT_SECRET,
       { expiresIn: "2h" }
     );
 
     res.status(201).json({
-      message: "User registered successfully",
+      message: "Registration successful",
       token,
       user: {
-        id: newUser._id,
-        name: newUser.name,
-        email: newUser.email,
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
       },
     });
-  } catch (err) {
-    console.error("Registration error:", err);
-    res.status(500).json({ error: "Server error during registration." });
+  } catch (error) {
+    console.error("❌ Register error:", error);
+    res.status(500).json({ error: "Registration failed" });
   }
 };
 
 /* ===================== LOGIN ===================== */
 export const login = async (req, res) => {
-  const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: "Email and password are required" });
-  }
-
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "User not found" });
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: "Email and password are required",
+      });
+    }
+
+    // 🔥 IMPORTANT FIX: explicitly select password
+    const user = await User.findOne({ email }).select("+password");
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ error: "Invalid credentials" });
+    if (!isMatch) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     const token = jwt.sign(
-      { id: user._id, email: user.email },
+      { id: user._id, role: user.role },
       JWT_SECRET,
       { expiresIn: "2h" }
     );
@@ -93,60 +119,76 @@ export const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
-  } catch (err) {
-    console.error("Login error:", err);
-    res.status(500).json({ error: "Server error during login" });
+  } catch (error) {
+    console.error("❌ Login error:", error);
+    res.status(500).json({ error: "Login failed" });
   }
 };
 
 /* ===================== FORGOT PASSWORD ===================== */
 export const forgotPassword = async (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email is required" });
-
   try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+
     const user = await User.findOne({ email });
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
 
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    const otp = crypto.randomInt(100000, 999999).toString();
+    const hashedOtp = crypto
+      .createHash("sha256")
+      .update(otp)
+      .digest("hex");
 
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
+    // Remove old OTPs
     await PasswordReset.deleteMany({ email });
 
     await PasswordReset.create({
       email,
       otp: hashedOtp,
-      expiresAt,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 min
     });
 
     await transporter.sendMail({
-      from: `"TalentHub" <${process.env.EMAIL_USER}>`,
+      from: `"TalentHub" <${EMAIL_USER}>`,
       to: email,
       subject: "Password Reset OTP",
-      text: `Your OTP is ${otp}. It is valid for 15 minutes.`,
+      html: `
+        <p>Your OTP is <strong>${otp}</strong></p>
+        <p>This OTP is valid for <b>15 minutes</b>.</p>
+      `,
     });
 
-    res.status(200).json({ message: "OTP sent to your email" });
-  } catch (err) {
-    console.error("Forgot password error:", err);
+    res.status(200).json({ message: "OTP sent successfully" });
+  } catch (error) {
+    console.error("❌ Forgot password error:", error);
     res.status(500).json({ error: "Failed to send OTP" });
   }
 };
 
 /* ===================== VERIFY OTP ===================== */
 export const verifyOTP = async (req, res) => {
-  const { email, otp } = req.body;
-
-  if (!email || !otp) {
-    return res.status(400).json({ error: "Email and OTP are required" });
-  }
-
   try {
-    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        error: "Email and OTP are required",
+      });
+    }
+
+    const hashedOtp = crypto
+      .createHash("sha256")
+      .update(otp)
+      .digest("hex");
 
     const record = await PasswordReset.findOne({
       email,
@@ -155,25 +197,35 @@ export const verifyOTP = async (req, res) => {
     });
 
     if (!record) {
-      return res.status(400).json({ error: "Invalid or expired OTP" });
+      return res.status(400).json({
+        error: "Invalid or expired OTP",
+      });
     }
 
-    res.status(200).json({ message: "OTP verified successfully" });
-  } catch (err) {
-    console.error("Verify OTP error:", err);
+    res.status(200).json({ message: "OTP verified" });
+  } catch (error) {
+    console.error("❌ Verify OTP error:", error);
     res.status(500).json({ error: "OTP verification failed" });
   }
 };
 
 /* ===================== RESET PASSWORD ===================== */
 export const resetPassword = async (req, res) => {
-  const { email, newPassword } = req.body;
-
-  if (!email || !newPassword) {
-    return res.status(400).json({ error: "Email and new password are required" });
-  }
-
   try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({
+        error: "Email and new password required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        error: "Password must be at least 6 characters",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await User.updateOne(
@@ -181,11 +233,14 @@ export const resetPassword = async (req, res) => {
       { $set: { password: hashedPassword } }
     );
 
+    // cleanup OTPs
     await PasswordReset.deleteMany({ email });
 
-    res.status(200).json({ message: "Password updated successfully" });
-  } catch (err) {
-    console.error("Reset password error:", err);
-    res.status(500).json({ error: "Failed to update password" });
+    res.status(200).json({
+      message: "Password reset successful",
+    });
+  } catch (error) {
+    console.error("❌ Reset password error:", error);
+    res.status(500).json({ error: "Password reset failed" });
   }
 };

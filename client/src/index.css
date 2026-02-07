@@ -1,28 +1,52 @@
+/* ===================== TAILWIND ===================== */
 @import "tailwindcss";
-@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
-body {
-  @apply font-sans bg-gray-900 text-white transition-all duration-300;
+
+/* ===================== DARK MODE VARIANT ===================== */
+/* Enables: dark:bg-*, dark:text-* using data-theme="dark" */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* ===================== BASE STYLES ===================== */
+html {
+  scroll-behavior: smooth;
 }
+
+body {
+  @apply font-sans bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100;
+  @apply transition-colors duration-300;
+}
+
+/* ===================== SCROLLBAR ===================== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #6366f1; /* indigo-500 */
+  border-radius: 9999px;
+}
+
+/* ===================== 3D HOVER UTILITIES ===================== */
 .hover\:rotate-x-1:hover {
   transform: perspective(1000px) rotateX(1deg);
 }
+
 .hover\:-rotate-x-1:hover {
   transform: perspective(1000px) rotateX(-1deg);
 }
+
 .hover\:rotate-y-2:hover {
   transform: perspective(1000px) rotateY(2deg);
 }
-/* Light Mode (default) */
-.custom-select option {
-  background-color: white;
-    color: black;
 
+/* ===================== CUSTOM SELECT FIX ===================== */
+/* Default (Light Mode) */
+.custom-select option {
+  background-color: #ffffff;
+  color: #000000;
 }
-/* Dark Mode */
-@media (prefers-color-scheme: dark) {
-  .custom-select option {
-    background-color:#1f2937;/* Tailwind gray-800 */
-    color: #f9fafb;
-        
-  }
-} 
+
+/* Dark Mode (via data-theme="dark") */
+[data-theme="dark"] .custom-select option {
+  background-color: #1f2937; /* gray-800 */
+  color: #f9fafb; /* gray-50 */
+}

@@ -1,23 +1,50 @@
 import express from "express";
-import * as playlistController from "../controllers/playlistController.js";
+import {
+  createPlaylist,
+  getAllPlaylists,
+  getPlaylistById,
+  updatePlaylist,
+  deletePlaylist,
+} from "../controllers/playlistController.js";
 import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// Create a playlist (auth required)
-router.post("/", verifyToken, playlistController.createPlaylist);
+/* ===================== PLAYLIST ROUTES ===================== */
 
-// Get all playlists (public or protected — your choice)
-router.get("/", playlistController.getAllPlaylists);
+/**
+ * @route   POST /api/playlist
+ * @desc    Create a new playlist
+ * @access  Private (Authenticated user)
+ */
+router.post("/", verifyToken, createPlaylist);
 
-// Get a playlist by ID
-router.get("/:id", playlistController.getPlaylistById);
+/**
+ * @route   GET /api/playlist
+ * @desc    Get all playlists
+ * @access  Public
+ */
+router.get("/", getAllPlaylists);
 
-// Update a playlist (auth required)
-router.put("/:id", verifyToken, playlistController.updatePlaylist);
+/**
+ * @route   GET /api/playlist/:id
+ * @desc    Get playlist by ID
+ * @access  Public
+ */
+router.get("/:id", getPlaylistById);
 
-// Delete a playlist (auth required)
-router.delete("/:id", verifyToken, playlistController.deletePlaylist);
+/**
+ * @route   PUT /api/playlist/:id
+ * @desc    Update playlist
+ * @access  Private (Authenticated user)
+ */
+router.put("/:id", verifyToken, updatePlaylist);
+
+/**
+ * @route   DELETE /api/playlist/:id
+ * @desc    Delete playlist
+ * @access  Private (Authenticated user)
+ */
+router.delete("/:id", verifyToken, deletePlaylist);
 
 export default router;
-

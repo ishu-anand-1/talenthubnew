@@ -21,7 +21,7 @@ export const verifyToken = (req, res, next) => {
       });
     }
 
-    req.user = { id: decoded.id, email: decoded.email }; // Matches controller JWT payload
+    req.user = { id: decoded.id, role: decoded.role,email: decoded.email }; // Matches controller JWT payload
     next();
   });
 };
